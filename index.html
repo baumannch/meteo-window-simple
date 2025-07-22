@@ -295,38 +295,38 @@
 <body>
     <div class="dashboard">
         <div class="header">
-            <h1 class="title">💨 Keller Dashboard</h1>
+            <h1 class="title">đ¨ Keller Dashboard</h1>
             <div class="datetime" id="datetime">Lade Daten...</div>
             <div id="error-container"></div>
 
             <div style="margin: 15px 0;">
-                Innentemperatur (°C)
-                <input type="number" id="indoor-temp-input" placeholder="20" value="20" min="5" max="35" step="1">
-                <button onclick="refreshData()">🔄 Aktualisieren</button>
+                Innentemperatur (Â°C)
+                <input type="number" id="indoor-temp-input" placeholder="20" value="20" min="5" max="35" step="0.1">
+                <button onclick="refreshData()">đ Aktualisieren</button>
             </div>
 
             <!--             <div class="cors-info">
-                <strong>ℹ️ Hinweis:</strong> Diese Version lädt Daten direkt von den Wetter-APIs.
-                Falls CORS-Fehler auftreten, müssen Sie einen CORS-Proxy verwenden oder die Seite über HTTPS laden.
+                <strong>âšď¸ Hinweis:</strong> Diese Version nutzt automatisch CORS-Proxies zum Laden der Wetter-APIs.
+                Das kann etwas lĂ¤nger dauern, funktioniert aber zuverlĂ¤ssig ohne Backend.
             </div> -->
         </div>
 
         <div class="weather-grid">
             <div class="weather-card outdoor">
                 <div class="card-header">
-                    <div class="card-icon">🌡️</div>
-                    <div class="card-title">Außentemperatur</div>
+                    <div class="card-icon">đĄď¸</div>
+                    <div class="card-title">AuĂentemperatur</div>
                 </div>
                 <div class="card-bottom">
                     <div class="card-value" id="outdoor-temp">--</div>
-                    <div class="card-unit"> °C</div>
+                    <div class="card-unit"> Â°C</div>
                 </div>
             </div>
 
             <div class="weather-card outdoor">
                 <div class="card-header">
-                    <div class="card-icon">💧</div>
-                    <div class="card-title">Außenfeuchtigkeit</div>
+                    <div class="card-icon">đ§</div>
+                    <div class="card-title">AuĂenfeuchtigkeit</div>
                 </div>
                 <div class="card-bottom">
                     <div class="card-value" id="outdoor-humidity">--</div>
@@ -336,18 +336,18 @@
 
             <div class="weather-card indoor">
                 <div class="card-header">
-                    <div class="card-icon">🏠</div>
+                    <div class="card-icon">đ </div>
                     <div class="card-title">Innentemperatur</div>
                 </div>
                 <div class="card-bottom">
                     <div class="card-value" id="indoor-temp">--</div>
-                    <div class="card-unit"> °C</div>
+                    <div class="card-unit"> Â°C</div>
                 </div>
             </div>
 
             <div class="weather-card indoor">
                 <div class="card-header">
-                    <div class="card-icon">💨</div>
+                    <div class="card-icon">đ¨</div>
                     <div class="card-title">Resultierende Innenfeuchtigkeit</div>
                 </div>
                 <div class="card-bottom">
@@ -361,7 +361,7 @@
         </div>
 
         <div class="status-panel" id="status-panel">
-            <div class="status-icon" id="status-icon">⏳</div>
+            <div class="status-icon" id="status-icon">âł</div>
             <div class="status-text" id="status-text">Lade Daten...</div>
             <div class="status-description" id="status-description">
                 Wetterdaten werden abgerufen...
@@ -370,7 +370,7 @@
     </div>
 
     <script>
-        // Globale Variablen für Wetterdaten
+        // Globale Variablen fĂźr Wetterdaten
         let weatherData = {
             temperature: 0,
             humidity: 0,
@@ -380,28 +380,30 @@
             source: ""
         };
 
-        // CORS-Proxy URLs (falls die direkten API-Aufrufe blockiert werden)
+        // CORS-Proxy URLs - immer verwendet fĂźr bessere ZuverlĂ¤ssigkeit
         const corsProxies = [
             'https://api.allorigins.win/raw?url=',
             'https://corsproxy.io/?',
-            'https://api.codetabs.com/v1/proxy?quest='
+            'https://cors-anywhere.herokuapp.com/',
+            'https://api.codetabs.com/v1/proxy?quest=',
+            'https://thingproxy.freeboard.io/fetch/'
         ];
 
         // Funktion zur Berechnung der relativen Luftfeuchtigkeit (aus dem Backend portiert)
         function calculateRelativeHumidity(outsideTemperature, outsideHumidity, indoorTemperature) {
             console.log('Berechnung Innenfeuchtigkeit:');
-            console.log('Außentemperatur:', outsideTemperature);
-            console.log('Außenfeuchtigkeit:', outsideHumidity);
+            console.log('AuĂentemperatur:', outsideTemperature);
+            console.log('AuĂenfeuchtigkeit:', outsideHumidity);
             console.log('Innentemperatur:', indoorTemperature);
 
-            // Berechnung des Dampfdrucks der Außenluft
+            // Berechnung des Dampfdrucks der AuĂenluft
             const saturationVaporPressureOutside = 6.112 * Math.exp((17.62 * outsideTemperature) / (outsideTemperature + 243.12));
             const actualVaporPressureOutside = (outsideHumidity / 100) * saturationVaporPressureOutside;
 
             // Berechnung des Dampfdrucks der Innenluft
             const saturationVaporPressureIndoor = 6.112 * Math.exp((17.62 * indoorTemperature) / (indoorTemperature + 243.12));
 
-            // Überprüfen, ob der Sättigungsdampfdruck der Innenluft nicht null ist
+            // ĂberprĂźfen, ob der SĂ¤ttigungsdampfdruck der Innenluft nicht null ist
             if (saturationVaporPressureIndoor === 0) {
                 return 0;
             }
@@ -421,152 +423,119 @@
             const errorContainer = document.getElementById('error-container');
             errorContainer.innerHTML = `<div class="error-message">${message}</div>`;
 
-            // Status Panel für Fehler aktualisieren
+            // Status Panel fĂźr Fehler aktualisieren
             const statusPanel = document.getElementById('status-panel');
             const statusIcon = document.getElementById('status-icon');
             const statusText = document.getElementById('status-text');
             const statusDescription = document.getElementById('status-description');
 
             statusPanel.className = 'status-panel status-warning';
-            statusIcon.textContent = '⚠️';
+            statusIcon.textContent = 'â ď¸';
             statusText.textContent = 'Fehler beim Laden der Daten';
             statusDescription.textContent = message;
         }
 
-        // Funktion zum Löschen von Fehlermeldungen
+        // Funktion zum LĂśschen von Fehlermeldungen
         function clearError() {
             document.getElementById('error-container').innerHTML = '';
         }
 
-        // Funktion zum Abrufen der Meteotest-Daten
+        // Funktion zum Abrufen der Meteotest-Daten (immer Ăźber CORS-Proxy)
         async function fetchMeteotestData() {
             const url = 'https://meteotest.ch/actions/mdxConnector/mdx/MeteotestMeasurements';
 
-            try {
-                // Versuche direkten API-Aufruf
-                const response = await fetch(url);
-                if (!response.ok) throw new Error('Direkter API-Aufruf fehlgeschlagen');
+            console.log('Lade Meteotest-Daten Ăźber CORS-Proxy...');
 
-                const data = await response.json();
-                if (!data.hourly || data.hourly.length === 0) {
-                    throw new Error('Keine Daten gefunden');
-                }
+            // Versuche alle CORS-Proxies durch
+            for (let i = 0; i < corsProxies.length; i++) {
+                const proxy = corsProxies[i];
+                try {
+                    console.log(`Versuche Proxy ${i + 1}/${corsProxies.length}: ${proxy.split('/')[2]}`);
 
-                const lastRecord = data.hourly[data.hourly.length - 1];
-                if (!lastRecord || typeof lastRecord.tt === 'undefined' || typeof lastRecord.rh === 'undefined') {
-                    throw new Error('Ungültige Datenstruktur');
-                }
+                    const response = await fetch(proxy + encodeURIComponent(url));
+                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
-                // Fix UTC Date: Z hinzufügen falls nicht vorhanden
-                if (lastRecord.date && !lastRecord.date.endsWith('Z')) {
-                    lastRecord.date = lastRecord.date + 'Z';
-                }
+                    const data = await response.json();
 
-                return {
-                    success: true,
-                    data: lastRecord,
-                    source: 'Meteotest (direkt)'
-                };
-
-            } catch (error) {
-                console.log('Direkter Meteotest-Aufruf fehlgeschlagen:', error.message);
-
-                // Versuche CORS-Proxy
-                for (let proxy of corsProxies) {
-                    try {
-                        const response = await fetch(proxy + encodeURIComponent(url));
-                        const data = await response.json();
-
-                        if (data.hourly && data.hourly.length > 0) {
-                            const lastRecord = data.hourly[data.hourly.length - 1];
-                            if (lastRecord && typeof lastRecord.tt !== 'undefined' && typeof lastRecord.rh !== 'undefined') {
-                                if (lastRecord.date && !lastRecord.date.endsWith('Z')) {
-                                    lastRecord.date = lastRecord.date + 'Z';
-                                }
-                                return {
-                                    success: true,
-                                    data: lastRecord,
-                                    source: `Meteotest (via ${proxy.split('/')[2]})`
-                                };
-                            }
-                        }
-                    } catch (proxyError) {
-                        console.log(`CORS-Proxy ${proxy} fehlgeschlagen:`, proxyError.message);
-                        continue;
+                    if (!data.hourly || data.hourly.length === 0) {
+                        throw new Error('Keine hourly-Daten gefunden');
                     }
-                }
 
-                return { success: false, error: 'Meteotest API nicht erreichbar' };
+                    const lastRecord = data.hourly[data.hourly.length - 1];
+                    if (!lastRecord || typeof lastRecord.tt === 'undefined' || typeof lastRecord.rh === 'undefined') {
+                        throw new Error('UngĂźltige Datenstruktur in letztem Record');
+                    }
+
+                    // Fix UTC Date: Z hinzufĂźgen falls nicht vorhanden
+                    if (lastRecord.date && !lastRecord.date.endsWith('Z')) {
+                        lastRecord.date = lastRecord.date + 'Z';
+                    }
+
+                    console.log(`â Meteotest-Daten erfolgreich geladen via ${proxy.split('/')[2]}`);
+                    return {
+                        success: true,
+                        data: lastRecord,
+                        source: `Meteotest (${proxy.split('/')[2]})`
+                    };
+
+                } catch (proxyError) {
+                    console.log(`â Proxy ${proxy.split('/')[2]} fehlgeschlagen:`, proxyError.message);
+                    continue;
+                }
             }
+
+            return { success: false, error: 'Alle Meteotest-Proxies fehlgeschlagen' };
         }
 
-        // Funktion zum Abrufen der Smart Urban Heat Map-Daten
+        // Funktion zum Abrufen der Smart Urban Heat Map-Daten (immer Ăźber CORS-Proxy)
         async function fetchSmartUrbanData() {
             const url = 'https://smart-urban-heat-map.ch/api/v2/timeseries?stationId=11059';
 
-            try {
-                // Versuche direkten API-Aufruf
-                const response = await fetch(url);
-                if (!response.ok) throw new Error('Direkter API-Aufruf fehlgeschlagen');
+            console.log('Lade Smart Urban-Daten Ăźber CORS-Proxy...');
 
-                const data = await response.json();
-                if (!data.values || data.values.length === 0) {
-                    throw new Error('Keine Daten gefunden');
-                }
+            // Versuche alle CORS-Proxies durch
+            for (let i = 0; i < corsProxies.length; i++) {
+                const proxy = corsProxies[i];
+                try {
+                    console.log(`Versuche Proxy ${i + 1}/${corsProxies.length}: ${proxy.split('/')[2]}`);
 
-                const lastRecord = data.values[data.values.length - 1];
-                if (!lastRecord || typeof lastRecord.temperature === 'undefined' ||
-                    typeof lastRecord.relativeHumidity === 'undefined' ||
-                    typeof lastRecord.dateObserved === 'undefined') {
-                    throw new Error('Ungültige Datenstruktur');
-                }
+                    const response = await fetch(proxy + encodeURIComponent(url));
+                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
-                // Umwandlung in das erwartete Format
-                const convertedData = {
-                    date: lastRecord.dateObserved,
-                    tt: lastRecord.temperature,
-                    rh: lastRecord.relativeHumidity
-                };
+                    const data = await response.json();
 
-                return {
-                    success: true,
-                    data: convertedData,
-                    source: 'Smart Urban Heat Map (direkt)'
-                };
-
-            } catch (error) {
-                console.log('Direkter Smart Urban-Aufruf fehlgeschlagen:', error.message);
-
-                // Versuche CORS-Proxy
-                for (let proxy of corsProxies) {
-                    try {
-                        const response = await fetch(proxy + encodeURIComponent(url));
-                        const data = await response.json();
-
-                        if (data.values && data.values.length > 0) {
-                            const lastRecord = data.values[data.values.length - 1];
-                            if (lastRecord && typeof lastRecord.temperature !== 'undefined' &&
-                                typeof lastRecord.relativeHumidity !== 'undefined') {
-                                const convertedData = {
-                                    date: lastRecord.dateObserved,
-                                    tt: lastRecord.temperature,
-                                    rh: lastRecord.relativeHumidity
-                                };
-                                return {
-                                    success: true,
-                                    data: convertedData,
-                                    source: `Smart Urban Heat Map (via ${proxy.split('/')[2]})`
-                                };
-                            }
-                        }
-                    } catch (proxyError) {
-                        console.log(`CORS-Proxy ${proxy} fehlgeschlagen:`, proxyError.message);
-                        continue;
+                    if (!data.values || data.values.length === 0) {
+                        throw new Error('Keine values-Daten gefunden');
                     }
-                }
 
-                return { success: false, error: 'Smart Urban Heat Map API nicht erreichbar' };
+                    const lastRecord = data.values[data.values.length - 1];
+                    if (!lastRecord || typeof lastRecord.temperature === 'undefined' ||
+                        typeof lastRecord.relativeHumidity === 'undefined' ||
+                        typeof lastRecord.dateObserved === 'undefined') {
+                        throw new Error('UngĂźltige Datenstruktur in letztem Record');
+                    }
+
+                    // Umwandlung in das erwartete Format
+                    const convertedData = {
+                        date: lastRecord.dateObserved,
+                        tt: lastRecord.temperature,
+                        rh: lastRecord.relativeHumidity
+                    };
+
+                    console.log(`â Smart Urban-Daten erfolgreich geladen via ${proxy.split('/')[2]}`);
+                    return {
+                        success: true,
+                        data: convertedData,
+                        source: `Smart Urban Heat Map (${proxy.split('/')[2]})`
+                    };
+
+                } catch (proxyError) {
+                    console.log(`â Proxy ${proxy.split('/')[2]} fehlgeschlagen:`, proxyError.message);
+                    continue;
+                }
             }
+
+            return { success: false, error: 'Alle Smart Urban-Proxies fehlgeschlagen' };
         }
 
         // Hauptfunktion zum Laden der Wetterdaten
@@ -576,7 +545,7 @@
             const indoorTemp = parseFloat(document.getElementById('indoor-temp-input').value) || 20.0;
 
             // Status auf Laden setzen
-            document.getElementById('status-icon').textContent = '⏳';
+            document.getElementById('status-icon').textContent = 'âł';
             document.getElementById('status-text').textContent = 'Lade Daten...';
             document.getElementById('status-description').textContent = 'Wetterdaten werden abgerufen...';
 
@@ -584,13 +553,13 @@
                 // Versuche zuerst Meteotest
                 let result = await fetchMeteotestData();
 
-                // Falls Meteotest fehlschlägt, versuche Smart Urban Heat Map
+                // Falls Meteotest fehlschlĂ¤gt, versuche Smart Urban Heat Map
                 if (!result.success) {
                     result = await fetchSmartUrbanData();
                 }
 
                 if (!result.success) {
-                    throw new Error('Beide APIs sind nicht erreichbar. Möglicherweise CORS-Problem.');
+                    throw new Error('Alle CORS-Proxies sind nicht erreichbar. Versuchen Sie es spĂ¤ter erneut.');
                 }
 
                 const data = result.data;
@@ -616,7 +585,7 @@
 
             } catch (error) {
                 console.error('Fehler beim Laden der Wetterdaten:', error);
-                showError(`${error.message} Stellen Sie sicher, dass Sie eine HTTPS-Verbindung verwenden oder einen CORS-Proxy nutzen.`);
+                showError(`${error.message} Falls das Problem weiterhin besteht, sind mĂśglicherweise alle CORS-Proxy-Dienste temporĂ¤r nicht verfĂźgbar.`);
             }
         }
 
@@ -627,7 +596,7 @@
             try {
                 date = new Date(weatherData.date);
                 if (isNaN(date.getTime())) {
-                    throw new Error('Ungültiges Datum');
+                    throw new Error('UngĂźltiges Datum');
                 }
             } catch (error) {
                 date = new Date(); // Fallback auf aktuelles Datum
@@ -661,15 +630,15 @@
 
             if (weatherData.indoor_humidity > 70) {
                 statusPanel.className = 'status-panel status-warning';
-                statusIcon.textContent = '⚠️';
-                statusText.textContent = 'Feuchte Außenluft!';
-                statusDescription.textContent = 'Lüften macht keinen Sinn.';
+                statusIcon.textContent = 'â ď¸';
+                statusText.textContent = 'Feuchte AuĂenluft!';
+                statusDescription.textContent = 'LĂźften macht keinen Sinn.';
                 humidityBar.className = 'humidity-fill humidity-warning';
             } else {
                 statusPanel.className = 'status-panel status-ok';
-                statusIcon.textContent = '✅';
-                statusText.textContent = 'Trockene Außenluft';
-                statusDescription.textContent = 'Lüften funktioniert!';
+                statusIcon.textContent = 'â';
+                statusText.textContent = 'Trockene AuĂenluft';
+                statusDescription.textContent = 'LĂźften funktioniert!';
                 humidityBar.className = 'humidity-fill humidity-ok';
             }
 
@@ -684,7 +653,7 @@
             loadWeatherData();
         }
 
-        // URL-Parameter für Innentemperatur auslesen
+        // URL-Parameter fĂźr Innentemperatur auslesen
         function getQueryParam(param) {
             const urlParams = new URLSearchParams(window.location.search);
             return urlParams.get(param);
