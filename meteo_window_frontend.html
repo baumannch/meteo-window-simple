@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="de">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Keller Dashboard - Frontend Only</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Tahoma, 'Segoe UI', Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 10px;
+        }
+
+        .dashboard {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            max-width: 800px;
+            width: 100%;
+            animation: fadeIn 0.8s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .title {
+            font-size: 2.5rem;
+            color: #333;
+            margin-bottom: 10px;
+            font-weight: 300;
+        }
+
+        .datetime {
+            color: #666;
+            font-size: 1.1rem;
+            margin-bottom: 15px;
+        }
+
+        .error-message {
+            background: #fee;
+            color: #c33;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+            border-left: 4px solid #c33;
+        }
+
+        .loading {
+            color: #667eea;
+            font-style: italic;
+        }
+
+        .weather-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+
+        .weather-card {
+            background: white;
+            border-radius: 15px;
+            padding: 10px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .weather-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.15);
+        }
+
+        .weather-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .card-bottom {
+            display: flex;
+            align-items: center;
+        }
+
+        .card-icon {
+            font-size: 2rem;
+            margin-right: 15px;
+        }
+
+        .card-title {
+            font-size: 1.1rem;
+            color: #333;
+            font-weight: 500;
+        }
+
+        .card-value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #2c3e50;
+            margin-bottom: 5px;
+        }
+
+        .card-unit {
+            font-size: 0.9rem;
+            color: #7f8c8d;
+        }
+
+        .status-panel {
+            background: white;
+            border-radius: 15px;
+            padding: 15px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .status-ok {
+            border-left: 5px solid #27ae60;
+        }
+
+        .status-warning {
+            border-left: 5px solid #f39c12;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.8;
+            }
+        }
+
+        .status-icon {
+            font-size: 3rem;
+            margin-bottom: 15px;
+        }
+
+        .status-ok .status-icon {
+            color: #27ae60;
+        }
+
+        .status-warning .status-icon {
+            color: #f39c12;
+        }
+
+        .status-text {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+
+        .status-ok .status-text {
+            color: #27ae60;
+        }
+
+        .status-warning .status-text {
+            color: #f39c12;
+        }
+
+        .status-description {
+            color: #666;
+            font-size: 1.1rem;
+        }
+
+        .humidity-bar {
+            width: 100%;
+            height: 8px;
+            background: #ecf0f1;
+            border-radius: 4px;
+            margin: 15px 0;
+            overflow: hidden;
+        }
+
+        .humidity-fill {
+            height: 100%;
+            border-radius: 4px;
+            transition: width 1s ease-out;
+        }
+
+        .humidity-ok {
+            background: linear-gradient(90deg, #27ae60, #2ecc71);
+        }
+
+        .humidity-warning {
+            background: linear-gradient(90deg, #f39c12, #e67e22);
+        }
+
+        input[type="number"] {
+            width: 50%;
+            max-width: 100px;
+            padding: 8px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+            margin: 0 10px;
+        }
+
+        button {
+            margin-top: 10px;
+            padding: 8px 16px;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
+
+        button:hover {
+            opacity: 0.9;
+        }
+
+        .cors-info {
+            background: #e8f4fd;
+            color: #1565c0;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 20px 0;
+            border-left: 4px solid #1565c0;
+            font-size: 0.9rem;
+        }
+
+        @media (max-width: 450px) {
+            .dashboard {
+                padding: 20px;
+            }
+
+            .title {
+                font-size: 1.8rem;
+            }
+
+            .weather-grid {
+                grid-template-columns: 1fr;
+                gap: 20px;
+            }
+
+            .card-value {
+                font-size: 1.8rem;
+            }
+
+            .status-text {
+                font-size: 1rem;
+            }
+
+            input[type="number"] {
+                width: 80px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="dashboard">
+        <div class="header">
+            <h1 class="title">💨 Keller Dashboard</h1>
+            <div class="datetime" id="datetime">Lade Daten...</div>
+            <div id="error-container"></div>
+
+            <div style="margin: 15px 0;">
+                Innentemperatur (°C)
+                <input type="number" id="indoor-temp-input" placeholder="20" value="20" min="5" max="35" step="1">
+                <button onclick="refreshData()">🔄 Aktualisieren</button>
+            </div>
+
+            <!--             <div class="cors-info">
+                <strong>ℹ️ Hinweis:</strong> Diese Version lädt Daten direkt von den Wetter-APIs.
+                Falls CORS-Fehler auftreten, müssen Sie einen CORS-Proxy verwenden oder die Seite über HTTPS laden.
+            </div> -->
+        </div>
+
+        <div class="weather-grid">
+            <div class="weather-card outdoor">
+                <div class="card-header">
+                    <div class="card-icon">🌡️</div>
+                    <div class="card-title">Außentemperatur</div>
+                </div>
+                <div class="card-bottom">
+                    <div class="card-value" id="outdoor-temp">--</div>
+                    <div class="card-unit"> °C</div>
+                </div>
+            </div>
+
+            <div class="weather-card outdoor">
+                <div class="card-header">
+                    <div class="card-icon">💧</div>
+                    <div class="card-title">Außenfeuchtigkeit</div>
+                </div>
+                <div class="card-bottom">
+                    <div class="card-value" id="outdoor-humidity">--</div>
+                    <div class="card-unit"> %</div>
+                </div>
+            </div>
+
+            <div class="weather-card indoor">
+                <div class="card-header">
+                    <div class="card-icon">🏠</div>
+                    <div class="card-title">Innentemperatur</div>
+                </div>
+                <div class="card-bottom">
+                    <div class="card-value" id="indoor-temp">--</div>
+                    <div class="card-unit"> °C</div>
+                </div>
+            </div>
+
+            <div class="weather-card indoor">
+                <div class="card-header">
+                    <div class="card-icon">💨</div>
+                    <div class="card-title">Resultierende Innenfeuchtigkeit</div>
+                </div>
+                <div class="card-bottom">
+                    <div class="card-value" id="indoor-humidity">--</div>
+                    <div class="card-unit"> %</div>
+                </div>
+                <div class="humidity-bar">
+                    <div class="humidity-fill" id="humidity-bar"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="status-panel" id="status-panel">
+            <div class="status-icon" id="status-icon">⏳</div>
+            <div class="status-text" id="status-text">Lade Daten...</div>
+            <div class="status-description" id="status-description">
+                Wetterdaten werden abgerufen...
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Globale Variablen für Wetterdaten
+        let weatherData = {
+            temperature: 0,
+            humidity: 0,
+            date: "",
+            indoor_temperature: 20,
+            indoor_humidity: 0,
+            source: ""
+        };
+
+        // CORS-Proxy URLs (falls die direkten API-Aufrufe blockiert werden)
+        const corsProxies = [
+            'https://api.allorigins.win/raw?url=',
+            'https://corsproxy.io/?',
+            'https://api.codetabs.com/v1/proxy?quest='
+        ];
+
+        // Funktion zur Berechnung der relativen Luftfeuchtigkeit (aus dem Backend portiert)
+        function calculateRelativeHumidity(outsideTemperature, outsideHumidity, indoorTemperature) {
+            console.log('Berechnung Innenfeuchtigkeit:');
+            console.log('Außentemperatur:', outsideTemperature);
+            console.log('Außenfeuchtigkeit:', outsideHumidity);
+            console.log('Innentemperatur:', indoorTemperature);
+
+            // Berechnung des Dampfdrucks der Außenluft
+            const saturationVaporPressureOutside = 6.112 * Math.exp((17.62 * outsideTemperature) / (outsideTemperature + 243.12));
+            const actualVaporPressureOutside = (outsideHumidity / 100) * saturationVaporPressureOutside;
+
+            // Berechnung des Dampfdrucks der Innenluft
+            const saturationVaporPressureIndoor = 6.112 * Math.exp((17.62 * indoorTemperature) / (indoorTemperature + 243.12));
+
+            // Überprüfen, ob der Sättigungsdampfdruck der Innenluft nicht null ist
+            if (saturationVaporPressureIndoor === 0) {
+                return 0;
+            }
+
+            // Berechnung der relativen Luftfeuchtigkeit im Innenraum
+            const indoorHumidity = (actualVaporPressureOutside / saturationVaporPressureIndoor) * 100;
+
+            // Sicherstellen, dass der Wert zwischen 0 und 100 bleibt
+            const result = Math.max(0, Math.min(100, Math.round(indoorHumidity)));
+
+            console.log('Berechnete Innenfeuchtigkeit:', result);
+            return result;
+        }
+
+        // Funktion zum Anzeigen von Fehlermeldungen
+        function showError(message) {
+            const errorContainer = document.getElementById('error-container');
+            errorContainer.innerHTML = `<div class="error-message">${message}</div>`;
+
+            // Status Panel für Fehler aktualisieren
+            const statusPanel = document.getElementById('status-panel');
+            const statusIcon = document.getElementById('status-icon');
+            const statusText = document.getElementById('status-text');
+            const statusDescription = document.getElementById('status-description');
+
+            statusPanel.className = 'status-panel status-warning';
+            statusIcon.textContent = '⚠️';
+            statusText.textContent = 'Fehler beim Laden der Daten';
+            statusDescription.textContent = message;
+        }
+
+        // Funktion zum Löschen von Fehlermeldungen
+        function clearError() {
+            document.getElementById('error-container').innerHTML = '';
+        }
+
+        // Funktion zum Abrufen der Meteotest-Daten
+        async function fetchMeteotestData() {
+            const url = 'https://meteotest.ch/actions/mdxConnector/mdx/MeteotestMeasurements';
+
+            try {
+                // Versuche direkten API-Aufruf
+                const response = await fetch(url);
+                if (!response.ok) throw new Error('Direkter API-Aufruf fehlgeschlagen');
+
+                const data = await response.json();
+                if (!data.hourly || data.hourly.length === 0) {
+                    throw new Error('Keine Daten gefunden');
+                }
+
+                const lastRecord = data.hourly[data.hourly.length - 1];
+                if (!lastRecord || typeof lastRecord.tt === 'undefined' || typeof lastRecord.rh === 'undefined') {
+                    throw new Error('Ungültige Datenstruktur');
+                }
+
+                // Fix UTC Date: Z hinzufügen falls nicht vorhanden
+                if (lastRecord.date && !lastRecord.date.endsWith('Z')) {
+                    lastRecord.date = lastRecord.date + 'Z';
+                }
+
+                return {
+                    success: true,
+                    data: lastRecord,
+                    source: 'Meteotest (direkt)'
+                };
+
+            } catch (error) {
+                console.log('Direkter Meteotest-Aufruf fehlgeschlagen:', error.message);
+
+                // Versuche CORS-Proxy
+                for (let proxy of corsProxies) {
+                    try {
+                        const response = await fetch(proxy + encodeURIComponent(url));
+                        const data = await response.json();
+
+                        if (data.hourly && data.hourly.length > 0) {
+                            const lastRecord = data.hourly[data.hourly.length - 1];
+                            if (lastRecord && typeof lastRecord.tt !== 'undefined' && typeof lastRecord.rh !== 'undefined') {
+                                if (lastRecord.date && !lastRecord.date.endsWith('Z')) {
+                                    lastRecord.date = lastRecord.date + 'Z';
+                                }
+                                return {
+                                    success: true,
+                                    data: lastRecord,
+                                    source: `Meteotest (via ${proxy.split('/')[2]})`
+                                };
+                            }
+                        }
+                    } catch (proxyError) {
+                        console.log(`CORS-Proxy ${proxy} fehlgeschlagen:`, proxyError.message);
+                        continue;
+                    }
+                }
+
+                return { success: false, error: 'Meteotest API nicht erreichbar' };
+            }
+        }
+
+        // Funktion zum Abrufen der Smart Urban Heat Map-Daten
+        async function fetchSmartUrbanData() {
+            const url = 'https://smart-urban-heat-map.ch/api/v2/timeseries?stationId=11059';
+
+            try {
+                // Versuche direkten API-Aufruf
+                const response = await fetch(url);
+                if (!response.ok) throw new Error('Direkter API-Aufruf fehlgeschlagen');
+
+                const data = await response.json();
+                if (!data.values || data.values.length === 0) {
+                    throw new Error('Keine Daten gefunden');
+                }
+
+                const lastRecord = data.values[data.values.length - 1];
+                if (!lastRecord || typeof lastRecord.temperature === 'undefined' ||
+                    typeof lastRecord.relativeHumidity === 'undefined' ||
+                    typeof lastRecord.dateObserved === 'undefined') {
+                    throw new Error('Ungültige Datenstruktur');
+                }
+
+                // Umwandlung in das erwartete Format
+                const convertedData = {
+                    date: lastRecord.dateObserved,
+                    tt: lastRecord.temperature,
+                    rh: lastRecord.relativeHumidity
+                };
+
+                return {
+                    success: true,
+                    data: convertedData,
+                    source: 'Smart Urban Heat Map (direkt)'
+                };
+
+            } catch (error) {
+                console.log('Direkter Smart Urban-Aufruf fehlgeschlagen:', error.message);
+
+                // Versuche CORS-Proxy
+                for (let proxy of corsProxies) {
+                    try {
+                        const response = await fetch(proxy + encodeURIComponent(url));
+                        const data = await response.json();
+
+                        if (data.values && data.values.length > 0) {
+                            const lastRecord = data.values[data.values.length - 1];
+                            if (lastRecord && typeof lastRecord.temperature !== 'undefined' &&
+                                typeof lastRecord.relativeHumidity !== 'undefined') {
+                                const convertedData = {
+                                    date: lastRecord.dateObserved,
+                                    tt: lastRecord.temperature,
+                                    rh: lastRecord.relativeHumidity
+                                };
+                                return {
+                                    success: true,
+                                    data: convertedData,
+                                    source: `Smart Urban Heat Map (via ${proxy.split('/')[2]})`
+                                };
+                            }
+                        }
+                    } catch (proxyError) {
+                        console.log(`CORS-Proxy ${proxy} fehlgeschlagen:`, proxyError.message);
+                        continue;
+                    }
+                }
+
+                return { success: false, error: 'Smart Urban Heat Map API nicht erreichbar' };
+            }
+        }
+
+        // Hauptfunktion zum Laden der Wetterdaten
+        async function loadWeatherData() {
+            clearError();
+
+            const indoorTemp = parseFloat(document.getElementById('indoor-temp-input').value) || 20.0;
+
+            // Status auf Laden setzen
+            document.getElementById('status-icon').textContent = '⏳';
+            document.getElementById('status-text').textContent = 'Lade Daten...';
+            document.getElementById('status-description').textContent = 'Wetterdaten werden abgerufen...';
+
+            try {
+                // Versuche zuerst Meteotest
+                let result = await fetchMeteotestData();
+
+                // Falls Meteotest fehlschlägt, versuche Smart Urban Heat Map
+                if (!result.success) {
+                    result = await fetchSmartUrbanData();
+                }
+
+                if (!result.success) {
+                    throw new Error('Beide APIs sind nicht erreichbar. Möglicherweise CORS-Problem.');
+                }
+
+                const data = result.data;
+
+                // Innenfeuchtigkeit berechnen
+                const indoorHumidity = calculateRelativeHumidity(
+                    parseFloat(data.tt),
+                    parseFloat(data.rh),
+                    indoorTemp
+                );
+
+                // Daten aktualisieren
+                weatherData = {
+                    temperature: parseFloat(data.tt),
+                    humidity: parseFloat(data.rh),
+                    date: data.date,
+                    indoor_temperature: indoorTemp,
+                    indoor_humidity: indoorHumidity,
+                    source: result.source
+                };
+
+                updateDisplay();
+
+            } catch (error) {
+                console.error('Fehler beim Laden der Wetterdaten:', error);
+                showError(`${error.message} Stellen Sie sicher, dass Sie eine HTTPS-Verbindung verwenden oder einen CORS-Proxy nutzen.`);
+            }
+        }
+
+        // Funktion zum Aktualisieren der Anzeige
+        function updateDisplay() {
+            // Datum und Zeit formatieren
+            let date;
+            try {
+                date = new Date(weatherData.date);
+                if (isNaN(date.getTime())) {
+                    throw new Error('Ungültiges Datum');
+                }
+            } catch (error) {
+                date = new Date(); // Fallback auf aktuelles Datum
+            }
+
+            const options = {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+                timeZone: 'Europe/Berlin'
+            };
+
+            document.getElementById('datetime').textContent =
+                `Stand: ${date.toLocaleString('de-DE', options)} (${weatherData.source})`;
+
+            // Werte anzeigen
+            document.getElementById('outdoor-temp').textContent = weatherData.temperature.toFixed(1);
+            document.getElementById('outdoor-humidity').textContent = weatherData.humidity.toFixed(1);
+            document.getElementById('indoor-temp').textContent = weatherData.indoor_temperature.toFixed(1);
+            document.getElementById('indoor-humidity').textContent = weatherData.indoor_humidity.toFixed(1);
+
+            // Status Panel aktualisieren
+            const statusPanel = document.getElementById('status-panel');
+            const statusIcon = document.getElementById('status-icon');
+            const statusText = document.getElementById('status-text');
+            const statusDescription = document.getElementById('status-description');
+            const humidityBar = document.getElementById('humidity-bar');
+
+            if (weatherData.indoor_humidity > 70) {
+                statusPanel.className = 'status-panel status-warning';
+                statusIcon.textContent = '⚠️';
+                statusText.textContent = 'Feuchte Außenluft!';
+                statusDescription.textContent = 'Lüften macht keinen Sinn.';
+                humidityBar.className = 'humidity-fill humidity-warning';
+            } else {
+                statusPanel.className = 'status-panel status-ok';
+                statusIcon.textContent = '✅';
+                statusText.textContent = 'Trockene Außenluft';
+                statusDescription.textContent = 'Lüften funktioniert!';
+                humidityBar.className = 'humidity-fill humidity-ok';
+            }
+
+            // Feuchtigkeitsbalken animieren
+            setTimeout(() => {
+                humidityBar.style.width = Math.min(weatherData.indoor_humidity, 100) + '%';
+            }, 500);
+        }
+
+        // Funktion zum manuellen Aktualisieren
+        function refreshData() {
+            loadWeatherData();
+        }
+
+        // URL-Parameter für Innentemperatur auslesen
+        function getQueryParam(param) {
+            const urlParams = new URLSearchParams(window.location.search);
+            return urlParams.get(param);
+        }
+
+        // Initialisierung beim Laden der Seite
+        window.onload = () => {
+            const indoorTemp = getQueryParam('indoorTemp') || 20;
+            document.getElementById('indoor-temp-input').value = indoorTemp;
+            loadWeatherData();
+        };
+
+        // Automatische Updates alle 10 Minuten
+        setInterval(loadWeatherData, 600000);
+
+        // Enter-Taste im Eingabefeld
+        document.getElementById('indoor-temp-input').addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') {
+                refreshData();
+            }
+        });
+    </script>
+</body>
+
+</html>
