@@ -72,9 +72,14 @@
             border-left: 4px solid #c33;
         }
 
-        .loading {
-            color: #667eea;
-            font-style: italic;
+        .cors-info {
+            background: #e8f4fd;
+            color: #1565c0;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 20px 0;
+            border-left: 4px solid #1565c0;
+            font-size: 0.9rem;
         }
 
         .weather-grid {
@@ -253,16 +258,6 @@
             opacity: 0.9;
         }
 
-        .cors-info {
-            background: #e8f4fd;
-            color: #1565c0;
-            padding: 15px;
-            border-radius: 10px;
-            margin: 20px 0;
-            border-left: 4px solid #1565c0;
-            font-size: 0.9rem;
-        }
-
         @media (max-width: 450px) {
             .dashboard {
                 padding: 20px;
@@ -305,10 +300,10 @@
                 <button onclick="refreshData()">🔄 Aktualisieren</button>
             </div>
 
-            <!--             <div class="cors-info">
-                <strong>ℹ️ Hinweis:</strong> Diese Version nutzt automatisch CORS-Proxies zum Laden der Wetter-APIs.
-                Das kann etwas länger dauern, funktioniert aber zuverlässig ohne Backend.
-            </div> -->
+            <div class="cors-info" id="cors-info" style="display: none;">
+                <strong>ℹ️ Hinweis:</strong> Lade Wetterdaten über CORS-Proxy...
+                Das kann einen Moment dauern.
+            </div>
         </div>
 
         <div class="weather-grid">
@@ -380,14 +375,39 @@
             source: ""
         };
 
-        // CORS-Proxy URLs - immer verwendet für bessere Zuverlässigkeit
+        // CORS-Proxy URLs - geordnet nach Geschwindigkeit (schnellste zuerst)
         const corsProxies = [
-            'https://api.allorigins.win/raw?url=',
             'https://corsproxy.io/?',
-            'https://cors-anywhere.herokuapp.com/',
+            'https://thingproxy.freeboard.io/fetch/',
             'https://api.codetabs.com/v1/proxy?quest=',
-            'https://thingproxy.freeboard.io/fetch/'
+            'https://api.allorigins.win/raw?url='
         ];
+
+        // Timeout für fetch-Requests (in Millisekunden)
+        const FETCH_TIMEOUT = 12000; // 12 Sekunden
+
+        // Hilfsfunktion für fetch mit Timeout
+        async function fetchWithTimeout(url, timeout = FETCH_TIMEOUT) {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+            try {
+                const response = await fetch(url, {
+                    signal: controller.signal,
+                    headers: {
+                        'Accept': 'application/json',
+                    }
+                });
+                clearTimeout(timeoutId);
+                return response;
+            } catch (error) {
+                clearTimeout(timeoutId);
+                if (error.name === 'AbortError') {
+                    throw new Error(`Timeout nach ${timeout / 1000}s`);
+                }
+                throw error;
+            }
+        }
 
         // Funktion zur Berechnung der relativen Luftfeuchtigkeit (aus dem Backend portiert)
         function calculateRelativeHumidity(outsideTemperature, outsideHumidity, indoorTemperature) {
@@ -418,6 +438,19 @@
             return result;
         }
 
+        // Funktion zum Anzeigen/Verstecken des CORS-Info-Texts
+        function showCorsInfo(message = null) {
+            const corsInfo = document.getElementById('cors-info');
+            if (message) {
+                corsInfo.innerHTML = `<strong>ℹ️ Hinweis:</strong> ${message}`;
+            }
+            corsInfo.style.display = 'block';
+        }
+
+        function hideCorsInfo() {
+            document.getElementById('cors-info').style.display = 'none';
+        }
+
         // Funktion zum Anzeigen von Fehlermeldungen
         function showError(message) {
             const errorContainer = document.getElementById('error-container');
@@ -440,22 +473,29 @@
             document.getElementById('error-container').innerHTML = '';
         }
 
-        // Funktion zum Abrufen der Meteotest-Daten (immer über CORS-Proxy)
+        // Funktion zum Abrufen der Meteotest-Daten (sequenziell durch Proxies)
         async function fetchMeteotestData() {
             const url = 'https://meteotest.ch/actions/mdxConnector/mdx/MeteotestMeasurements';
 
             console.log('Lade Meteotest-Daten über CORS-Proxy...');
 
-            // Versuche alle CORS-Proxies durch
+            // Sequenziell durch alle CORS-Proxies (keine parallelen Anfragen)
             for (let i = 0; i < corsProxies.length; i++) {
                 const proxy = corsProxies[i];
-                try {
-                    console.log(`Versuche Proxy ${i + 1}/${corsProxies.length}: ${proxy.split('/')[2]}`);
+                const proxyName = proxy.split('/')[2].split('?')[0]; // Sauberer Name
 
-                    const response = await fetch(proxy + encodeURIComponent(url));
-                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                try {
+                    console.log(`🔄 Proxy ${i + 1}/${corsProxies.length}: ${proxyName} (Timeout: ${FETCH_TIMEOUT / 1000}s)`);
+                    const startTime = Date.now();
+
+                    const response = await fetchWithTimeout(proxy + encodeURIComponent(url));
+
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status} ${response.statusText}`);
+                    }
 
                     const data = await response.json();
+                    const duration = ((Date.now() - startTime) / 1000).toFixed(1);
 
                     if (!data.hourly || data.hourly.length === 0) {
                         throw new Error('Keine hourly-Daten gefunden');
@@ -463,7 +503,7 @@
 
                     const lastRecord = data.hourly[data.hourly.length - 1];
                     if (!lastRecord || typeof lastRecord.tt === 'undefined' || typeof lastRecord.rh === 'undefined') {
-                        throw new Error('Ungültige Datenstruktur in letztem Record');
+                        throw new Error('Ungültige Datenstruktur');
                     }
 
                     // Fix UTC Date: Z hinzufügen falls nicht vorhanden
@@ -471,38 +511,48 @@
                         lastRecord.date = lastRecord.date + 'Z';
                     }
 
-                    console.log(`✅ Meteotest-Daten erfolgreich geladen via ${proxy.split('/')[2]}`);
+                    console.log(`✅ Meteotest via ${proxyName} erfolgreich (${duration}s)`);
                     return {
                         success: true,
                         data: lastRecord,
-                        source: `Meteotest (${proxy.split('/')[2]})`
+                        source: `Meteotest (${proxyName})`
                     };
 
-                } catch (proxyError) {
-                    console.log(`❌ Proxy ${proxy.split('/')[2]} fehlgeschlagen:`, proxyError.message);
-                    continue;
+                } catch (error) {
+                    console.log(`❌ ${proxyName}: ${error.message}`);
+                    // Weiter mit nächstem Proxy (kein break)
                 }
             }
 
-            return { success: false, error: 'Alle Meteotest-Proxies fehlgeschlagen' };
+            return {
+                success: false,
+                error: 'Alle Meteotest-Proxies fehlgeschlagen oder zu langsam'
+            };
         }
 
-        // Funktion zum Abrufen der Smart Urban Heat Map-Daten (immer über CORS-Proxy)
+        // Funktion zum Abrufen der Smart Urban Heat Map-Daten (sequenziell durch Proxies)
         async function fetchSmartUrbanData() {
             const url = 'https://smart-urban-heat-map.ch/api/v2/timeseries?stationId=11059';
 
             console.log('Lade Smart Urban-Daten über CORS-Proxy...');
 
-            // Versuche alle CORS-Proxies durch
+            // Sequenziell durch alle CORS-Proxies (keine parallelen Anfragen)
             for (let i = 0; i < corsProxies.length; i++) {
                 const proxy = corsProxies[i];
-                try {
-                    console.log(`Versuche Proxy ${i + 1}/${corsProxies.length}: ${proxy.split('/')[2]}`);
+                const proxyName = proxy.split('/')[2].split('?')[0]; // Sauberer Name
 
-                    const response = await fetch(proxy + encodeURIComponent(url));
-                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                try {
+                    console.log(`🔄 Proxy ${i + 1}/${corsProxies.length}: ${proxyName} (Timeout: ${FETCH_TIMEOUT / 1000}s)`);
+                    const startTime = Date.now();
+
+                    const response = await fetchWithTimeout(proxy + encodeURIComponent(url));
+
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status} ${response.statusText}`);
+                    }
 
                     const data = await response.json();
+                    const duration = ((Date.now() - startTime) / 1000).toFixed(1);
 
                     if (!data.values || data.values.length === 0) {
                         throw new Error('Keine values-Daten gefunden');
@@ -512,7 +562,7 @@
                     if (!lastRecord || typeof lastRecord.temperature === 'undefined' ||
                         typeof lastRecord.relativeHumidity === 'undefined' ||
                         typeof lastRecord.dateObserved === 'undefined') {
-                        throw new Error('Ungültige Datenstruktur in letztem Record');
+                        throw new Error('Ungültige Datenstruktur');
                     }
 
                     // Umwandlung in das erwartete Format
@@ -522,20 +572,23 @@
                         rh: lastRecord.relativeHumidity
                     };
 
-                    console.log(`✅ Smart Urban-Daten erfolgreich geladen via ${proxy.split('/')[2]}`);
+                    console.log(`✅ Smart Urban via ${proxyName} erfolgreich (${duration}s)`);
                     return {
                         success: true,
                         data: convertedData,
-                        source: `Smart Urban Heat Map (${proxy.split('/')[2]})`
+                        source: `Smart Urban Heat Map (${proxyName})`
                     };
 
-                } catch (proxyError) {
-                    console.log(`❌ Proxy ${proxy.split('/')[2]} fehlgeschlagen:`, proxyError.message);
-                    continue;
+                } catch (error) {
+                    console.log(`❌ ${proxyName}: ${error.message}`);
+                    // Weiter mit nächstem Proxy (kein break)
                 }
             }
 
-            return { success: false, error: 'Alle Smart Urban-Proxies fehlgeschlagen' };
+            return {
+                success: false,
+                error: 'Alle Smart Urban-Proxies fehlgeschlagen oder zu langsam'
+            };
         }
 
         // Hauptfunktion zum Laden der Wetterdaten
@@ -543,6 +596,9 @@
             clearError();
 
             const indoorTemp = parseFloat(document.getElementById('indoor-temp-input').value) || 20.0;
+
+            // CORS-Info anzeigen während des Ladens
+            showCorsInfo('Lade Wetterdaten über CORS-Proxy... Das kann einen Moment dauern.');
 
             // Status auf Laden setzen
             document.getElementById('status-icon').textContent = '⏳';
@@ -559,7 +615,7 @@
                 }
 
                 if (!result.success) {
-                    throw new Error('Alle CORS-Proxies sind nicht erreichbar. Versuchen Sie es später erneut.');
+                    throw new Error('Alle CORS-Proxies sind nicht erreichbar oder zu langsam.');
                 }
 
                 const data = result.data;
@@ -581,11 +637,16 @@
                     source: result.source
                 };
 
+                // Erfolgreich - CORS-Info verstecken und Anzeige aktualisieren
+                hideCorsInfo();
                 updateDisplay();
 
             } catch (error) {
                 console.error('Fehler beim Laden der Wetterdaten:', error);
-                showError(`${error.message} Falls das Problem weiterhin besteht, sind möglicherweise alle CORS-Proxy-Dienste temporär nicht verfügbar.`);
+
+                // Bei Fehler CORS-Info mit Fehlermeldung anzeigen
+                showCorsInfo('Alle CORS-Proxy-Dienste sind temporär nicht verfügbar. Versuchen Sie es später erneut.');
+                showError(error.message);
             }
         }
 
