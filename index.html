@@ -644,9 +644,9 @@
             } catch (error) {
                 console.error('Fehler beim Laden der Wetterdaten:', error);
 
-                // Bei Fehler CORS-Info mit Fehlermeldung anzeigen
-                showCorsInfo('Alle CORS-Proxy-Dienste sind temporär nicht verfügbar. Versuchen Sie es später erneut.');
-                showError(error.message);
+                // CORS-Info auch bei Fehlern verstecken (nur beim Laden sichtbar)
+                hideCorsInfo();
+                showError(error.message + ' Falls das Problem weiterhin besteht, sind möglicherweise alle CORS-Proxy-Dienste temporär nicht verfügbar.');
             }
         }
 
