@@ -334,7 +334,7 @@
 
             <div style="margin: 10px 0;">
                 Innentemperatur (°C)
-                <input type="number" id="indoor-temp-input" placeholder="20" value="20" min="5" max="35" step="0.1">
+                <input type="number" id="indoor-temp-input" placeholder="20" value="20" min="5" max="35" step="1">
                 <button onclick="refreshData()">🔄 Aktualisieren</button>
             </div>
 
@@ -403,7 +403,48 @@
     </div>
 
     <script>
-        // Globale Variablen für Wetterdaten
+        // Cache für API-Antworten
+        let apiCache = {
+            data: null,
+            timestamp: null,
+            source: null
+        };
+
+        const CACHE_DURATION = 60000; // 1 Minute in Millisekunden
+
+        // Funktion zum Prüfen ob Cache gültig ist
+        function isCacheValid() {
+            if (!apiCache.data || !apiCache.timestamp) {
+                return false;
+            }
+            const now = Date.now();
+            const cacheAge = now - apiCache.timestamp;
+            return cacheAge < CACHE_DURATION;
+        }
+
+        // Funktion zum Setzen des Cache
+        function setCache(data, source) {
+            apiCache = {
+                data: data,
+                timestamp: Date.now(),
+                source: source
+            };
+            console.log('📦 API-Daten gecacht für 1 Minute');
+        }
+
+        // Funktion zum Abrufen gecachter Daten
+        function getCachedData() {
+            if (isCacheValid()) {
+                const cacheAge = Math.round((Date.now() - apiCache.timestamp) / 1000);
+                console.log(`✅ Cache verwendet (${cacheAge}s alt)`);
+                return {
+                    success: true,
+                    data: apiCache.data,
+                    source: apiCache.source + ` (Cache ${cacheAge}s)`
+                };
+            }
+            return { success: false };
+        }
         let weatherData = {
             temperature: 0,
             humidity: 0,
@@ -653,10 +694,41 @@
         }
 
         // Hauptfunktion zum Laden der Wetterdaten
-        async function loadWeatherData() {
+        async function loadWeatherData(forceRefresh = false) {
             clearError();
 
             const indoorTemp = parseFloat(document.getElementById('indoor-temp-input').value) || 20.0;
+
+            // Prüfe Cache zuerst (außer bei forceRefresh)
+            if (!forceRefresh) {
+                const cachedResult = getCachedData();
+                if (cachedResult.success) {
+                    console.log('🚀 Verwende gecachte Wetterdaten');
+
+                    // Innenfeuchtigkeit mit aktueller Innentemperatur neu berechnen
+                    const indoorHumidity = calculateRelativeHumidity(
+                        parseFloat(cachedResult.data.tt),
+                        parseFloat(cachedResult.data.rh),
+                        indoorTemp
+                    );
+
+                    // Daten aktualisieren
+                    weatherData = {
+                        temperature: parseFloat(cachedResult.data.tt),
+                        humidity: parseFloat(cachedResult.data.rh),
+                        date: cachedResult.data.date,
+                        indoor_temperature: indoorTemp,
+                        indoor_humidity: indoorHumidity,
+                        source: cachedResult.source
+                    };
+
+                    updateDisplay();
+                    return; // Früher Ausstieg - keine API-Abfrage nötig
+                }
+            }
+
+            // Cache nicht verfügbar oder forceRefresh - API-Abfrage
+            console.log('🌐 Lade frische Wetterdaten von API...');
 
             // CORS-Info erst nach 3s anzeigen (verzögert)
             showCorsInfoDelayed('Lade Wetterdaten über CORS-Proxy... Das kann einen Moment dauern.', 3000);
@@ -680,6 +752,9 @@
                 }
 
                 const data = result.data;
+
+                // Daten im Cache speichern
+                setCache(data, result.source);
 
                 // Innenfeuchtigkeit berechnen
                 const indoorHumidity = calculateRelativeHumidity(
@@ -774,7 +849,12 @@
 
         // Funktion zum manuellen Aktualisieren
         function refreshData() {
-            loadWeatherData();
+            loadWeatherData(); // Verwendet Cache wenn < 1min alt
+        }
+
+        // Funktion zum erzwungenen Refresh (ohne Cache)
+        function forceRefreshData() {
+            loadWeatherData(true); // Ignoriert Cache
         }
 
         // URL-Parameter für Innentemperatur auslesen
@@ -790,8 +870,8 @@
             loadWeatherData();
         };
 
-        // Automatische Updates alle 10 Minuten
-        setInterval(loadWeatherData, 600000);
+        // Automatische Updates alle 10 Minuten (mit forceRefresh)
+        setInterval(() => loadWeatherData(true), 600000);
 
         // Enter-Taste im Eingabefeld
         document.getElementById('indoor-temp-input').addEventListener('keypress', function (e) {
