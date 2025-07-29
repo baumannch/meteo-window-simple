@@ -40,6 +40,13 @@ This is a frontend-only single-page application called "Keller Dashboard" that d
 - Input validation with realistic temperature ranges (-50°C to 60°C)
 - API response validation (`validateApiData()`)
 
+**UI/UX Design**:
+- Responsive grid layout: 2 columns (mobile), 2 columns (tablet), 4 columns (desktop ≥900px)
+- Modern glassmorphism design with backdrop filters
+- Animated status indicators and hover effects
+- Optimized control panel with improved input handling
+- Consistent color scheme with enhanced accessibility contrasts
+
 ## Development
 
 **No Build Process**: Direct file editing and browser refresh for development.
