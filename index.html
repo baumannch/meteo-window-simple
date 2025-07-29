@@ -73,13 +73,14 @@
         }
 
         .error-message {
-            background: #fee;
-            color: #c33;
-            padding: 8px;
-            border-radius: 5px;
-            margin: 8px 0;
-            border-left: 4px solid #c33;
+            background: #ffeaea;
+            color: #d32f2f;
+            padding: 10px;
+            border-radius: 8px;
+            margin: 10px 0;
+            border-left: 4px solid #e74c3c;
             font-size: 0.85rem;
+            line-height: 1.4;
         }
 
         .cors-info {
@@ -97,6 +98,15 @@
             grid-template-columns: repeat(2, 1fr);
             gap: 10px;
             margin-bottom: 15px;
+        }
+
+        /* Optimiert für größere Bildschirme: 4 Karten in einer Reihe */
+        @media (min-width: 900px) {
+            .weather-grid {
+                grid-template-columns: repeat(4, 1fr);
+                gap: 12px;
+                margin-bottom: 20px;
+            }
         }
 
         .weather-card {
@@ -161,20 +171,39 @@
         .status-panel {
             background: white;
             border-radius: 12px;
-            padding: 12px;
+            padding: 15px;
             box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
             text-align: center;
             position: relative;
             overflow: hidden;
+            margin-top: 8px;
+        }
+
+        .status-panel::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, #667eea, #764ba2);
         }
 
         .status-ok {
             border-left: 4px solid #27ae60;
         }
 
+        .status-ok::before {
+            background: linear-gradient(90deg, #27ae60, #2ecc71);
+        }
+
         .status-warning {
-            border-left: 4px solid #f39c12;
+            border-left: 4px solid #e74c3c;
             animation: pulse 2s infinite;
+        }
+
+        .status-warning::before {
+            background: linear-gradient(90deg, #e74c3c, #f39c12);
         }
 
         @keyframes pulse {
@@ -209,16 +238,17 @@
         }
 
         .status-ok .status-text {
-            color: #27ae60;
+            color: #2d7d40;
         }
 
         .status-warning .status-text {
-            color: #f39c12;
+            color: #c0392b;
         }
 
         .status-description {
-            color: #666;
+            color: #555;
             font-size: 0.9rem;
+            line-height: 1.4;
         }
 
         .humidity-bar {
@@ -244,30 +274,97 @@
             background: linear-gradient(90deg, #f39c12, #e67e22);
         }
 
-        input[type="number"] {
-            width: 70px;
-            padding: 6px;
-            border-radius: 4px;
-            border: 1px solid #ccc;
-            margin: 0 8px;
-            font-size: 0.9rem;
+        .control-panel {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+            margin: 15px 0;
+            padding: 12px;
+            background: rgba(255, 255, 255, 0.7);
+            border-radius: 10px;
+            backdrop-filter: blur(5px);
         }
 
-        button {
-            margin-top: 8px;
-            padding: 6px 12px;
+        .temp-control {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.9rem;
+            color: #333;
+        }
+
+        .temp-control label {
+            font-weight: 500;
+            white-space: nowrap;
+        }
+
+        .temp-unit {
+            font-weight: 500;
+            color: #666;
+        }
+
+        input[type="number"] {
+            width: 80px;
+            padding: 8px 10px;
+            border-radius: 6px;
+            border: 2px solid #e0e0e0;
+            font-size: 0.9rem;
+            text-align: center;
+            transition: border-color 0.3s ease;
+        }
+
+        input[type="number"]:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .refresh-btn {
+            padding: 8px 16px;
             background: linear-gradient(90deg, #667eea, #764ba2);
             color: white;
             border: none;
-            border-radius: 15px;
+            border-radius: 20px;
             cursor: pointer;
-            font-size: 0.8rem;
+            font-size: 0.85rem;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
         }
 
-        button:hover {
-            opacity: 0.9;
+        .refresh-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(102, 126, 234, 0.4);
         }
 
+        .refresh-btn:active {
+            transform: translateY(0);
+        }
+
+        /* Tablet-optimierte Ansicht */
+        @media (min-width: 451px) and (max-width: 768px) {
+            .dashboard {
+                padding: 18px;
+                max-width: 600px;
+            }
+
+            .weather-grid {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 12px;
+                margin-bottom: 18px;
+            }
+
+            .card-value {
+                font-size: 1.6rem;
+            }
+
+            .status-icon {
+                font-size: 2.8rem;
+            }
+        }
+
+        /* Mobile-optimierte Ansicht */
         @media (max-width: 450px) {
             body {
                 padding: 3px;
@@ -317,15 +414,30 @@
                 margin-bottom: 5px;
             }
 
-            input[type="number"] {
-                width: 60px;
-                font-size: 0.8rem;
-                padding: 4px;
+            .control-panel {
+                padding: 10px;
+                margin: 12px 0;
             }
 
-            button {
+            .temp-control {
+                flex-direction: column;
+                gap: 6px;
+                text-align: center;
+            }
+
+            .temp-control label {
+                font-size: 0.8rem;
+            }
+
+            input[type="number"] {
+                width: 70px;
+                font-size: 0.8rem;
+                padding: 6px;
+            }
+
+            .refresh-btn {
                 font-size: 0.75rem;
-                padding: 5px 10px;
+                padding: 6px 12px;
             }
         }
     </style>
@@ -338,10 +450,13 @@
             <div class="datetime" id="datetime">Lade Daten...</div>
             <div id="error-container"></div>
 
-            <div style="margin: 10px 0;">
-                Innentemperatur (°C)
-                <input type="number" id="indoor-temp-input" placeholder="Saisonaler Standard" value="20" min="-50" max="60" step="1" pattern="[+-]?([0-9]*[.])?[0-9]+" title="Temperatur zwischen -50°C und 60°C (Winter: 18°C, Frühling/Herbst: 19°C, Sommer: 20°C)">
-                <button onclick="refreshData()">🔄 Aktualisieren</button>
+            <div class="control-panel">
+                <div class="temp-control">
+                    <label for="indoor-temp-input">Innentemperatur:</label>
+                    <input type="number" id="indoor-temp-input" placeholder="Saisonaler Standard" value="20" min="-50" max="60" step="1" pattern="[+-]?([0-9]*[.])?[0-9]+" title="Temperatur zwischen -50°C und 60°C (Winter: 18°C, Frühling/Herbst: 19°C, Sommer: 20°C)">
+                    <span class="temp-unit">°C</span>
+                </div>
+                <button onclick="refreshData()" class="refresh-btn">🔄 Aktualisieren</button>
             </div>
 
             <div class="cors-info" id="cors-info" style="display: none;">
