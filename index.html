@@ -490,15 +490,15 @@
             source: ""
         };
 
-        // CORS-Proxy URLs - geordnet nach Zuverlässigkeit
+        // CORS-Proxy URLs - geordnet nach Geschwindigkeit (schnellste zuerst)
         const corsProxies = [
-            'https://api.allorigins.win/raw?url=',
-            'https://api.codetabs.com/v1/proxy?quest=',
-            'https://thingproxy.freeboard.io/fetch/'
+            'https://api.codetabs.com/v1/proxy?quest=',  // Meist schnellster
+            'https://api.allorigins.win/raw?url=',       // Zuverlässig aber langsamer
+            'https://thingproxy.freeboard.io/fetch/'     // Backup
         ];
 
         // Timeout für fetch-Requests (in Millisekunden)
-        const FETCH_TIMEOUT = 12000; // 12 Sekunden
+        const FETCH_TIMEOUT = 8000; // 8 Sekunden (reduziert für bessere Performance)
 
         // Hilfsfunktion für fetch mit Timeout
         async function fetchWithTimeout(url, timeout = FETCH_TIMEOUT) {
