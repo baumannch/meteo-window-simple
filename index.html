@@ -4,7 +4,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Keller Dashboard - Frontend Only</title>
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self' https://meteotest.ch https://smart-urban-heat-map.ch https://thingproxy.freeboard.io https://api.codetabs.com https://api.allorigins.win; img-src 'self' data:; font-src 'self';">
+    <meta http-equiv="X-Content-Type-Options" content="nosniff">
+    <meta http-equiv="X-Frame-Options" content="DENY">
+    <meta http-equiv="X-XSS-Protection" content="1; mode=block">
+    <meta name="referrer" content="strict-origin-when-cross-origin">
+    <title>Keller Dashboard</title>
     <style>
         * {
             margin: 0;
@@ -334,7 +339,7 @@
 
             <div style="margin: 10px 0;">
                 Innentemperatur (°C)
-                <input type="number" id="indoor-temp-input" placeholder="20" value="20" min="5" max="35" step="1">
+                <input type="number" id="indoor-temp-input" placeholder="Saisonaler Standard" value="20" min="-50" max="60" step="1" pattern="[+-]?([0-9]*[.])?[0-9]+" title="Temperatur zwischen -50°C und 60°C (Winter: 18°C, Frühling/Herbst: 19°C, Sommer: 20°C)">
                 <button onclick="refreshData()">🔄 Aktualisieren</button>
             </div>
 
@@ -403,12 +408,42 @@
     </div>
 
     <script>
-        // Cache für API-Antworten
+        // Sicherer Cache für API-Antworten
         let apiCache = {
             data: null,
             timestamp: null,
             source: null
         };
+
+        // Sichere Datenvalidierung für API-Responses
+        function validateApiData(data, source) {
+            if (!data || typeof data !== 'object') {
+                throw new Error('Ungültige API-Datenstruktur');
+            }
+
+            const temp = parseFloat(data.tt);
+            const humidity = parseFloat(data.rh);
+
+            if (isNaN(temp) || temp < -100 || temp > 100) {
+                throw new Error('Ungültige Temperaturwerte von API');
+            }
+
+            if (isNaN(humidity) || humidity < 0 || humidity > 101) {
+                throw new Error('Ungültige Feuchtigkeitswerte von API');
+            }
+
+            // Datum validieren
+            if (data.date && isNaN(new Date(data.date).getTime())) {
+                console.warn('Ungültiges Datum von API, verwende aktuelles Datum');
+                data.date = new Date().toISOString();
+            }
+
+            return {
+                ...data,
+                tt: temp,
+                rh: humidity
+            };
+        }
 
         const CACHE_DURATION = 60000; // 1 Minute in Millisekunden
 
@@ -454,12 +489,11 @@
             source: ""
         };
 
-        // CORS-Proxy URLs - geordnet nach Geschwindigkeit (schnellste zuerst)
+        // CORS-Proxy URLs - geordnet nach Zuverlässigkeit
         const corsProxies = [
-            'https://corsproxy.io/?',
-            'https://thingproxy.freeboard.io/fetch/',
+            'https://api.allorigins.win/raw?url=',
             'https://api.codetabs.com/v1/proxy?quest=',
-            'https://api.allorigins.win/raw?url='
+            'https://thingproxy.freeboard.io/fetch/'
         ];
 
         // Timeout für fetch-Requests (in Millisekunden)
@@ -521,7 +555,8 @@
         function showCorsInfo(message = null) {
             const corsInfo = document.getElementById('cors-info');
             if (message) {
-                corsInfo.innerHTML = `<strong>ℹ️ Hinweis:</strong> ${message}`;
+                const sanitizedMessage = sanitizeHTML(message);
+                corsInfo.innerHTML = `<strong>ℹ️ Hinweis:</strong> ${sanitizedMessage}`;
             }
             corsInfo.style.display = 'block';
         }
@@ -541,7 +576,11 @@
 
             // Timer für verzögerte Anzeige
             corsInfoTimer = setTimeout(() => {
-                showCorsInfo(message);
+                if (message) {
+                    showCorsInfo(message);
+                } else {
+                    showCorsInfo();
+                }
                 corsInfoTimer = null;
             }, delay);
         }
@@ -553,10 +592,18 @@
             }
         }
 
+        // HTML-Sanitisierung für sichere DOM-Manipulation
+        function sanitizeHTML(str) {
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        }
+
         // Funktion zum Anzeigen von Fehlermeldungen
         function showError(message) {
             const errorContainer = document.getElementById('error-container');
-            errorContainer.innerHTML = `<div class="error-message">${message}</div>`;
+            const sanitizedMessage = sanitizeHTML(message);
+            errorContainer.innerHTML = `<div class="error-message">${sanitizedMessage}</div>`;
 
             // Status Panel für Fehler aktualisieren
             const statusPanel = document.getElementById('status-panel');
@@ -567,7 +614,7 @@
             statusPanel.className = 'status-panel status-warning';
             statusIcon.textContent = '⚠️';
             statusText.textContent = 'Fehler beim Laden der Daten';
-            statusDescription.textContent = message;
+            statusDescription.textContent = sanitizeHTML(message);
         }
 
         // Funktion zum Löschen von Fehlermeldungen
@@ -608,6 +655,9 @@
                         throw new Error('Ungültige Datenstruktur');
                     }
 
+                    // Daten validieren
+                    const validatedRecord = validateApiData(lastRecord, 'Meteotest');
+
                     // Fix UTC Date: Z hinzufügen falls nicht vorhanden
                     if (lastRecord.date && !lastRecord.date.endsWith('Z')) {
                         lastRecord.date = lastRecord.date + 'Z';
@@ -616,7 +666,7 @@
                     console.log(`✅ Meteotest via ${proxyName} erfolgreich (${duration}s)`);
                     return {
                         success: true,
-                        data: lastRecord,
+                        data: validatedRecord,
                         source: `Meteotest (${proxyName})`
                     };
 
@@ -628,7 +678,7 @@
 
             return {
                 success: false,
-                error: 'Alle Meteotest-Proxies fehlgeschlagen oder zu langsam'
+                error: 'Alle verfügbaren CORS-Proxies für Meteotest fehlgeschlagen'
             };
         }
 
@@ -674,10 +724,13 @@
                         rh: lastRecord.relativeHumidity
                     };
 
+                    // Daten validieren
+                    const validatedData = validateApiData(convertedData, 'Smart Urban');
+
                     console.log(`✅ Smart Urban via ${proxyName} erfolgreich (${duration}s)`);
                     return {
                         success: true,
-                        data: convertedData,
+                        data: validatedData,
                         source: `Smart Urban Heat Map (${proxyName})`
                     };
 
@@ -689,7 +742,7 @@
 
             return {
                 success: false,
-                error: 'Alle Smart Urban-Proxies fehlgeschlagen oder zu langsam'
+                error: 'Alle verfügbaren CORS-Proxies für Smart Urban fehlgeschlagen'
             };
         }
 
@@ -697,7 +750,15 @@
         async function loadWeatherData(forceRefresh = false) {
             clearError();
 
-            const indoorTemp = parseFloat(document.getElementById('indoor-temp-input').value) || 20.0;
+            const inputValue = document.getElementById('indoor-temp-input').value;
+            const indoorTemp = validateTemperature(inputValue);
+
+            // Input-Feld immer auf validierten Wert setzen
+            if (inputValue !== indoorTemp.toString()) {
+                document.getElementById('indoor-temp-input').value = indoorTemp;
+                showError('Ungültige Temperatur eingegeben. Wert wurde auf ' + indoorTemp + '°C korrigiert.');
+                setTimeout(clearError, 3000);
+            }
 
             // Prüfe Cache zuerst (außer bei forceRefresh)
             if (!forceRefresh) {
@@ -748,7 +809,7 @@
                 }
 
                 if (!result.success) {
-                    throw new Error('Alle CORS-Proxies sind nicht erreichbar oder zu langsam.');
+                    throw new Error('Alle verfügbaren CORS-Proxies sind nicht erreichbar. Möglicherweise Netzwerkprobleme oder Proxy-Dienste temporär nicht verfügbar.');
                 }
 
                 const data = result.data;
@@ -857,15 +918,51 @@
             loadWeatherData(true); // Ignoriert Cache
         }
 
+        // Saisonabhängige Standardtemperatur bestimmen
+        function getSeasonalDefaultTemperature() {
+            const now = new Date();
+            const month = now.getMonth() + 1; // 1-12
+            
+            if (month >= 12 || month <= 2) {
+                return 18; // Winter: Dezember, Januar, Februar
+            } else if (month >= 3 && month <= 5) {
+                return 19; // Frühling: März, April, Mai
+            } else if (month >= 6 && month <= 8) {
+                return 20; // Sommer: Juni, Juli, August
+            } else {
+                return 19; // Herbst: September, Oktober, November
+            }
+        }
+
+        // Sichere Input-Validierung für Temperatur
+        function validateTemperature(value) {
+            const temp = parseFloat(value);
+            const defaultTemp = getSeasonalDefaultTemperature();
+            
+            if (isNaN(temp)) {
+                return defaultTemp; // Saisonaler Standardwert bei ungültiger Eingabe
+            }
+            // Realistische Temperaturbereich: -50°C bis 60°C
+            if (temp < -50 || temp > 60) {
+                return defaultTemp; // Saisonaler Standardwert bei außerhalb des Bereichs
+            }
+            return temp;
+        }
+
         // URL-Parameter für Innentemperatur auslesen
         function getQueryParam(param) {
             const urlParams = new URLSearchParams(window.location.search);
-            return urlParams.get(param);
+            const value = urlParams.get(param);
+            if (param === 'indoorTemp') {
+                const validTemp = validateTemperature(value);
+                return validTemp;
+            }
+            return value;
         }
 
         // Initialisierung beim Laden der Seite
         window.onload = () => {
-            const indoorTemp = getQueryParam('indoorTemp') || 20;
+            const indoorTemp = getQueryParam('indoorTemp') || getSeasonalDefaultTemperature();
             document.getElementById('indoor-temp-input').value = indoorTemp;
             loadWeatherData();
         };
