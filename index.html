@@ -779,13 +779,13 @@
                         throw new Error('Ungültige Datenstruktur');
                     }
 
-                    // Daten validieren
-                    const validatedRecord = validateApiData(lastRecord, 'Meteotest');
-
                     // Fix UTC Date: Z hinzufügen falls nicht vorhanden
                     if (lastRecord.date && !lastRecord.date.endsWith('Z')) {
                         lastRecord.date = lastRecord.date + 'Z';
                     }
+
+                    // Daten validieren
+                    const validatedRecord = validateApiData(lastRecord, 'Meteotest');
 
                     console.log(`✅ Meteotest via ${proxyName} erfolgreich (${duration}s)`);
                     return {
