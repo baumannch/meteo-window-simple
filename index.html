@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self' https://meteotest.ch https://smart-urban-heat-map.ch https://thingproxy.freeboard.io https://api.codetabs.com https://api.allorigins.win; img-src 'self' data:; font-src 'self';">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self' https://meteotest.ch https://smart-urban-heat-map.ch https://corsproxy.io https://api.codetabs.com https://api.allorigins.win; img-src 'self' data:; font-src 'self';">
     <meta http-equiv="X-Content-Type-Options" content="nosniff">
     <meta http-equiv="X-Frame-Options" content="DENY">
     <meta http-equiv="X-XSS-Protection" content="1; mode=block">
@@ -613,11 +613,16 @@
             source: ""
         };
 
-        // CORS-Proxy URLs - geordnet nach Geschwindigkeit (schnellste zuerst)
+        // CORS-Proxy URLs - nur noch für Meteotest nötig (Smart Urban erlaubt CORS direkt).
+        // Reihenfolge = Fallback-Priorität. Hinweis: kostenlose CORS-Proxys sind
+        // erfahrungsgemäß kurzlebig; bei Ausfall hier ersetzen.
+        // - corsproxy.io: zuverlässig, erfordert aber, dass die eigene Domain unter
+        //   https://corsproxy.io registriert ist (kostenlos).
+        // - codetabs / allorigins: keine Registrierung nötig, dafür unbeständiger.
         const corsProxies = [
-            'https://api.codetabs.com/v1/proxy?quest=',  // Meist schnellster
-            'https://api.allorigins.win/raw?url=',       // Zuverlässig aber langsamer
-            'https://thingproxy.freeboard.io/fetch/'     // Backup
+            'https://corsproxy.io/?url=',                // bevorzugt (Domain muss registriert sein)
+            'https://api.codetabs.com/v1/proxy?quest=',  // Fallback ohne Registrierung
+            'https://api.allorigins.win/raw?url='        // Fallback (oft langsam/überlastet)
         ];
 
         // Timeout für fetch-Requests (in Millisekunden)
@@ -806,68 +811,60 @@
             };
         }
 
-        // Funktion zum Abrufen der Smart Urban Heat Map-Daten (sequenziell durch Proxies)
+        // Funktion zum Abrufen der Smart Urban Heat Map-Daten (Direktabruf ohne Proxy).
+        // Die API sendet "Access-Control-Allow-Origin: *", daher ist kein CORS-Proxy nötig.
         async function fetchSmartUrbanData() {
             const url = 'https://smart-urban-heat-map.ch/api/v2/timeseries?stationId=11059';
 
-            console.log('Lade Smart Urban-Daten über CORS-Proxy...');
+            console.log('Lade Smart Urban-Daten direkt (ohne Proxy)...');
 
-            // Sequenziell durch alle CORS-Proxies (keine parallelen Anfragen)
-            for (let i = 0; i < corsProxies.length; i++) {
-                const proxy = corsProxies[i];
-                const proxyName = proxy.split('/')[2].split('?')[0]; // Sauberer Name
+            try {
+                const startTime = Date.now();
 
-                try {
-                    console.log(`🔄 Proxy ${i + 1}/${corsProxies.length}: ${proxyName} (Timeout: ${FETCH_TIMEOUT / 1000}s)`);
-                    const startTime = Date.now();
+                const response = await fetchWithTimeout(url);
 
-                    const response = await fetchWithTimeout(proxy + encodeURIComponent(url));
-
-                    if (!response.ok) {
-                        throw new Error(`HTTP ${response.status} ${response.statusText}`);
-                    }
-
-                    const data = await response.json();
-                    const duration = ((Date.now() - startTime) / 1000).toFixed(1);
-
-                    if (!data.values || data.values.length === 0) {
-                        throw new Error('Keine values-Daten gefunden');
-                    }
-
-                    const lastRecord = data.values[data.values.length - 1];
-                    if (!lastRecord || typeof lastRecord.temperature === 'undefined' ||
-                        typeof lastRecord.relativeHumidity === 'undefined' ||
-                        typeof lastRecord.dateObserved === 'undefined') {
-                        throw new Error('Ungültige Datenstruktur');
-                    }
-
-                    // Umwandlung in das erwartete Format
-                    const convertedData = {
-                        date: lastRecord.dateObserved,
-                        tt: lastRecord.temperature,
-                        rh: lastRecord.relativeHumidity
-                    };
-
-                    // Daten validieren
-                    const validatedData = validateApiData(convertedData, 'Smart Urban');
-
-                    console.log(`✅ Smart Urban via ${proxyName} erfolgreich (${duration}s)`);
-                    return {
-                        success: true,
-                        data: validatedData,
-                        source: `Smart Urban Heat Map (${proxyName})`
-                    };
-
-                } catch (error) {
-                    console.log(`❌ ${proxyName}: ${error.message}`);
-                    // Weiter mit nächstem Proxy (kein break)
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status} ${response.statusText}`);
                 }
-            }
 
-            return {
-                success: false,
-                error: 'Alle verfügbaren CORS-Proxies für Smart Urban fehlgeschlagen'
-            };
+                const data = await response.json();
+                const duration = ((Date.now() - startTime) / 1000).toFixed(1);
+
+                if (!data.values || data.values.length === 0) {
+                    throw new Error('Keine values-Daten gefunden');
+                }
+
+                const lastRecord = data.values[data.values.length - 1];
+                if (!lastRecord || typeof lastRecord.temperature === 'undefined' ||
+                    typeof lastRecord.relativeHumidity === 'undefined' ||
+                    typeof lastRecord.dateObserved === 'undefined') {
+                    throw new Error('Ungültige Datenstruktur');
+                }
+
+                // Umwandlung in das erwartete Format
+                const convertedData = {
+                    date: lastRecord.dateObserved,
+                    tt: lastRecord.temperature,
+                    rh: lastRecord.relativeHumidity
+                };
+
+                // Daten validieren
+                const validatedData = validateApiData(convertedData, 'Smart Urban');
+
+                console.log(`✅ Smart Urban direkt erfolgreich (${duration}s)`);
+                return {
+                    success: true,
+                    data: validatedData,
+                    source: 'Smart Urban Heat Map (direkt)'
+                };
+
+            } catch (error) {
+                console.log(`❌ Smart Urban (direkt): ${error.message}`);
+                return {
+                    success: false,
+                    error: `Smart Urban Direktabruf fehlgeschlagen: ${error.message}`
+                };
+            }
         }
 
         // Hauptfunktion zum Laden der Wetterdaten
@@ -933,7 +930,7 @@
                 }
 
                 if (!result.success) {
-                    throw new Error('Alle verfügbaren CORS-Proxies sind nicht erreichbar. Möglicherweise Netzwerkprobleme oder Proxy-Dienste temporär nicht verfügbar.');
+                    throw new Error('Keine Wetterdaten verfügbar. Smart Urban (direkt) nicht erreichbar und alle CORS-Proxys für Meteotest fehlgeschlagen – möglicherweise Netzwerkproblem oder Proxy-Dienste temporär nicht verfügbar.');
                 }
 
                 const data = result.data;
