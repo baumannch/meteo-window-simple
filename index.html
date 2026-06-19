@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self' https://meteotest.ch https://smart-urban-heat-map.ch https://corsproxy.io https://api.codetabs.com https://api.allorigins.win; img-src 'self' data:; font-src 'self';">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self' https://smart-urban-heat-map.ch https://late-art-b6e6.trap-crafter454.workers.dev; img-src 'self' data:; font-src 'self';">
     <meta http-equiv="X-Content-Type-Options" content="nosniff">
     <meta http-equiv="X-Frame-Options" content="DENY">
     <meta http-equiv="X-XSS-Protection" content="1; mode=block">
@@ -613,17 +613,11 @@
             source: ""
         };
 
-        // CORS-Proxy URLs - nur noch für Meteotest nötig (Smart Urban erlaubt CORS direkt).
-        // Reihenfolge = Fallback-Priorität. Hinweis: kostenlose CORS-Proxys sind
-        // erfahrungsgemäß kurzlebig; bei Ausfall hier ersetzen.
-        // - corsproxy.io: zuverlässig, erfordert aber, dass die eigene Domain unter
-        //   https://corsproxy.io registriert ist (kostenlos).
-        // - codetabs / allorigins: keine Registrierung nötig, dafür unbeständiger.
-        const corsProxies = [
-            'https://corsproxy.io/?url=',                // bevorzugt (Domain muss registriert sein)
-            'https://api.codetabs.com/v1/proxy?quest=',  // Fallback ohne Registrierung
-            'https://api.allorigins.win/raw?url='        // Fallback (oft langsam/überlastet)
-        ];
+        // Eigener Cloudflare-Worker als CORS-Proxy für Meteotest (kostenlos, stabil).
+        // Quelle des Workers liegt zur Referenz in cloudflare-worker.js im Repo.
+        // Der Worker liefert die Meteotest-Daten als fertiges JSON mit CORS-Headern;
+        // Smart Urban erlaubt CORS direkt und braucht keinen Proxy.
+        const METEOTEST_PROXY = 'https://late-art-b6e6.trap-crafter454.workers.dev/';
 
         // Timeout für fetch-Requests (in Millisekunden)
         const FETCH_TIMEOUT = 8000; // 8 Sekunden (reduziert für bessere Performance)
@@ -751,63 +745,55 @@
             document.getElementById('error-container').innerHTML = '';
         }
 
-        // Funktion zum Abrufen der Meteotest-Daten (sequenziell durch Proxies)
+        // Funktion zum Abrufen der Meteotest-Daten über den eigenen Cloudflare-Worker.
+        // Der Worker (siehe METEOTEST_PROXY / cloudflare-worker.js) holt die Meteotest-Daten
+        // serverseitig und liefert sie mit korrekten CORS-Headern als fertiges JSON zurück.
         async function fetchMeteotestData() {
-            const url = 'https://meteotest.ch/actions/mdxConnector/mdx/MeteotestMeasurements';
+            console.log('Lade Meteotest-Daten über eigenen Worker-Proxy...');
 
-            console.log('Lade Meteotest-Daten über CORS-Proxy...');
+            try {
+                const startTime = Date.now();
 
-            // Sequenziell durch alle CORS-Proxies (keine parallelen Anfragen)
-            for (let i = 0; i < corsProxies.length; i++) {
-                const proxy = corsProxies[i];
-                const proxyName = proxy.split('/')[2].split('?')[0]; // Sauberer Name
+                const response = await fetchWithTimeout(METEOTEST_PROXY);
 
-                try {
-                    console.log(`🔄 Proxy ${i + 1}/${corsProxies.length}: ${proxyName} (Timeout: ${FETCH_TIMEOUT / 1000}s)`);
-                    const startTime = Date.now();
-
-                    const response = await fetchWithTimeout(proxy + encodeURIComponent(url));
-
-                    if (!response.ok) {
-                        throw new Error(`HTTP ${response.status} ${response.statusText}`);
-                    }
-
-                    const data = await response.json();
-                    const duration = ((Date.now() - startTime) / 1000).toFixed(1);
-
-                    if (!data.hourly || data.hourly.length === 0) {
-                        throw new Error('Keine hourly-Daten gefunden');
-                    }
-
-                    const lastRecord = data.hourly[data.hourly.length - 1];
-                    if (!lastRecord || typeof lastRecord.tt === 'undefined' || typeof lastRecord.rh === 'undefined') {
-                        throw new Error('Ungültige Datenstruktur');
-                    }
-
-                    // Fix UTC Date: Z hinzufügen falls nicht vorhanden
-                    if (lastRecord.date && !lastRecord.date.endsWith('Z')) {
-                        lastRecord.date = lastRecord.date + 'Z';
-                    }
-
-                    // Daten validieren
-                    const validatedRecord = validateApiData(lastRecord, 'Meteotest');
-
-                    console.log(`✅ Meteotest via ${proxyName} erfolgreich (${duration}s)`);
-                    return {
-                        success: true,
-                        data: validatedRecord,
-                        source: `Meteotest (${proxyName})`
-                    };
-
-                } catch (error) {
-                    console.log(`❌ ${proxyName}: ${error.message}`);
-                    // Weiter mit nächstem Proxy (kein break)
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status} ${response.statusText}`);
                 }
+
+                const data = await response.json();
+                const duration = ((Date.now() - startTime) / 1000).toFixed(1);
+
+                if (!data.hourly || data.hourly.length === 0) {
+                    throw new Error('Keine hourly-Daten gefunden');
+                }
+
+                const lastRecord = data.hourly[data.hourly.length - 1];
+                if (!lastRecord || typeof lastRecord.tt === 'undefined' || typeof lastRecord.rh === 'undefined') {
+                    throw new Error('Ungültige Datenstruktur');
+                }
+
+                // Fix UTC Date: Z hinzufügen falls nicht vorhanden
+                if (lastRecord.date && !lastRecord.date.endsWith('Z')) {
+                    lastRecord.date = lastRecord.date + 'Z';
+                }
+
+                // Daten validieren
+                const validatedRecord = validateApiData(lastRecord, 'Meteotest');
+
+                console.log(`✅ Meteotest via Worker erfolgreich (${duration}s)`);
+                return {
+                    success: true,
+                    data: validatedRecord,
+                    source: 'Meteotest (Worker)'
+                };
+
+            } catch (error) {
+                console.log(`❌ Meteotest (Worker): ${error.message}`);
             }
 
             return {
                 success: false,
-                error: 'Alle verfügbaren CORS-Proxies für Meteotest fehlgeschlagen'
+                error: 'Meteotest-Abruf über Worker-Proxy fehlgeschlagen'
             };
         }
 
@@ -930,7 +916,7 @@
                 }
 
                 if (!result.success) {
-                    throw new Error('Keine Wetterdaten verfügbar. Smart Urban (direkt) nicht erreichbar und alle CORS-Proxys für Meteotest fehlgeschlagen – möglicherweise Netzwerkproblem oder Proxy-Dienste temporär nicht verfügbar.');
+                    throw new Error('Keine Wetterdaten verfügbar. Weder Meteotest (über Worker-Proxy) noch Smart Urban (direkt) erreichbar – möglicherweise Netzwerkproblem oder Dienst temporär nicht verfügbar.');
                 }
 
                 const data = result.data;
@@ -966,7 +952,7 @@
                 // Bei Fehler Timer abbrechen und CORS-Info verstecken
                 cancelCorsInfoDelayed();
                 hideCorsInfo();
-                showError(error.message + ' Falls das Problem weiterhin besteht, sind möglicherweise alle CORS-Proxy-Dienste temporär nicht verfügbar.');
+                showError(error.message + ' Falls das Problem weiterhin besteht, ist möglicherweise der Worker-Proxy oder die Datenquelle temporär nicht verfügbar.');
             }
         }
 

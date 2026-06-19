@@ -20,14 +20,13 @@ This is a frontend-only single-page application called "Keller Dashboard" that d
 
 ## Key Technical Details
 
-**CORS Proxy System**: Uses multiple fallback proxies to fetch weather data from external APIs:
-- `api.codetabs.com` (primary - fastest)
-- `api.allorigins.win` (secondary)  
-- `thingproxy.freeboard.io` (backup)
+**Weather Data Fetching**:
+- **Smart Urban Heat Map**: fetched **directly** — the API sends `Access-Control-Allow-Origin: *`, so no proxy is needed.
+- **Meteotest**: sends no CORS headers, so it is fetched via an **own Cloudflare Worker** acting as a restricted CORS proxy (the public free proxies — codetabs/allorigins/thingproxy — are dead or now require paid/registered access). The Worker source is in `cloudflare-worker.js`; its deployed URL is set in `index.html` as `METEOTEST_PROXY`. The Worker only allows the fixed Meteotest URL as target and the site's own origin as caller (not an open proxy).
 
 **Data Sources**:
-- Meteotest API: `https://meteotest.ch/actions/mdxConnector/mdx/MeteotestMeasurements`
-- Smart Urban Heat Map: `https://smart-urban-heat-map.ch/api/v2/timeseries?stationId=11059`
+- Meteotest API: `https://meteotest.ch/actions/mdxConnector/mdx/MeteotestMeasurements` (via Worker proxy)
+- Smart Urban Heat Map: `https://smart-urban-heat-map.ch/api/v2/timeseries?stationId=11059` (direct)
 
 **Seasonal Temperature Defaults**:
 - Winter (Dec-Feb): 18°C
@@ -59,6 +58,7 @@ This is a frontend-only single-page application called "Keller Dashboard" that d
 
 - `index.html` - Main application file
 - `old.html` - Previous version (reference only)
+- `cloudflare-worker.js` - Source of the Cloudflare Worker CORS proxy used for Meteotest (deployed separately; not served by the page)
 - `favicon.ico` - Wind emoji favicon
 - `CNAME` - GitHub Pages custom domain configuration
 
@@ -68,4 +68,5 @@ This is a frontend-only single-page application called "Keller Dashboard" that d
 - `validateTemperature()` - Input validation with seasonal fallbacks
 - `validateApiData()` - Validates API responses for security/data integrity
 - `calculateRelativeHumidity()` - Magnus formula for humidity calculation
-- `fetchMeteotestData()` / `fetchSmartUrbanData()` - API data fetching with proxy fallbacks
+- `fetchMeteotestData()` - Fetches Meteotest data via the Cloudflare Worker proxy (`METEOTEST_PROXY`)
+- `fetchSmartUrbanData()` - Fetches Smart Urban Heat Map data directly (CORS-enabled API)
